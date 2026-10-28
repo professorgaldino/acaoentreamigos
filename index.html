@@ -1,0 +1,501 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ação entre Amigos | Gestão</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#182337;background:#f2f5f9}
+*{box-sizing:border-box}
+body{margin:0}
+header{background:#12243d;color:white;padding:18px 24px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+h1{font-size:22px;margin:0}
+main{max-width:1250px;margin:24px auto;padding:0 14px}
+.panel{background:white;border:1px solid #dce3ed;border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 2px 8px #1122}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.field{display:flex;flex-direction:column;gap:5px;flex:1;min-width:145px}
+label{font-size:13px;font-weight:bold}
+input,select,textarea{border:1px solid #bdc8d7;border-radius:7px;padding:10px;font:inherit;min-width:0}
+button{border:0;border-radius:7px;padding:10px 14px;background:#175dd1;color:white;font-weight:bold;cursor:pointer}
+button.secondary{background:#e7edf6;color:#20324d}
+button.danger{background:#b12b36}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:15px}
+.tabs button.active{background:#12243d}
+.hidden{display:none!important}
+.muted{color:#64748b;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+.stat{background:#eef4ff;padding:15px;border-radius:9px}
+.stat strong{display:block;font-size:23px;margin-top:5px}
+.numbers{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:7px;max-height:440px;overflow:auto}
+.num{padding:10px 3px;border:1px solid #cbd5e1;border-radius:6px;text-align:center;font-size:14px;cursor:pointer;background:#eaf6ee;color:#14532d}
+.num.reservado{background:#fff2d5;color:#814800}
+.num.pago{background:#dbeafe;color:#174c9c}
+.num.gerado{outline:2px solid #7552cc}
+.num.selected{outline:3px solid #12243d}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:9px;border-bottom:1px solid #e1e6ee;text-align:left}
+.scroll{overflow:auto}
+.ticket{height:34mm;border:1px dashed #333;display:grid;grid-template-columns:31% 69%;break-inside:avoid;font-size:10px;color:#111;background:#fff}
+.ticket .stub{padding:6px;border-right:1px dashed #333;display:flex;flex-direction:column;justify-content:space-between}
+.ticket .face{padding:6px 10px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.ticket h3{margin:2px 0;font-size:14px}
+.ticket .no{font-size:17px;font-weight:900}
+.ticket .price{font-size:13px;font-weight:800}
+.ticket .lines{line-height:1.7}
+.print-sheet{display:none}
+.warning{background:#fff5d9;border:1px solid #e6bd58;padding:12px;border-radius:8px;margin-bottom:14px}
+@page{size:A4;margin:8mm}
+@media print{
+body>*:not(#printArea){display:none!important}
+#printArea{display:block!important}
+#printArea .ticket{height:34mm}
+#printArea .sheet{page-break-after:always}
+#printArea .sheet:last-child{page-break-after:auto}
+}
+@media(max-width:600px){
+header{align-items:start;flex-direction:column}
+.ticket{font-size:8px}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>Ação entre Amigos</h1>
+<div id="userInfo">Conectando...</div>
+</header>
+<main>
+<div class="warning">
+Uso sujeito às regras aplicáveis a sorteios e distribuição de prêmios no Brasil. O sistema não substitui autorização legal. O sorteio fica registrado no banco de dados, mas não possui auditoria externa independente.
+</div>
+<section id="auth" class="panel hidden">
+<h2>Entrar como administrador</h2>
+<div class="row">
+<div class="field"><label>E-mail</label><input id="email" type="email"></div>
+<div class="field"><label>Senha</label><input id="password" type="password"></div>
+<button id="loginBtn">Entrar</button>
+</div>
+<p class="muted">Cadastre seu administrador no Firebase Console em Authentication → Usuários.</p>
+</section>
+<section id="app" class="hidden">
+<div class="tabs">
+<button data-tab="acoes" class="active">Ações</button>
+<button data-tab="numeros">Números e compradores</button>
+<button data-tab="imprimir">Imprimir bilhetes</button>
+<button data-tab="sorteio">Sorteio</button>
+</div>
+<section id="acoes" class="panel">
+<h2>Criar / selecionar ação</h2>
+<div class="row">
+<div class="field">
+<label>Ação existente</label>
+<select id="actionSelect"><option value="">Selecione</option></select>
+</div>
+<button id="newAction" class="secondary">Nova ação</button>
+<button id="logout" class="secondary">Sair</button>
+</div>
+<h3>Dados da ação</h3>
+<div class="row">
+<div class="field"><label>Nome da ação</label><input id="actionName" value="Ação entre Amigos"></div>
+<div class="field"><label>Organização</label><input id="organization" placeholder="Ex.: Therezinha Villani"></div>
+<div class="field"><label>Prêmio</label><input id="prize" placeholder="Ex.: Bicicleta aro 26"></div>
+</div>
+<div class="row" style="margin-top:12px">
+<div class="field"><label>Valor por número (R$)</label><input id="price" type="number" step="0.01" min="0" value="2.00"></div>
+<div class="field"><label>Número inicial</label><input id="startNo" type="number" min="0" value="2001"></div>
+<div class="field"><label>Número final</label><input id="endNo" type="number" min="0" value="4000"></div>
+<div class="field"><label>Data do sorteio</label><input id="drawDate" type="date"></div>
+</div>
+<p class="muted">Você pode ajustar o valor enquanto não houver números reservados ou pagos. A faixa numérica não pode ser alterada após a criação.</p>
+<button id="saveAction">Salvar ação</button>
+<p id="actionInfo" class="muted"></p>
+<div id="stats" class="stats"></div>
+</section>
+<section id="numeros" class="panel hidden">
+<h2>Números e compradores</h2>
+<p class="muted">Clique em um número para reservar, registrar pagamento, editar ou liberar. Verde = disponível, amarelo = reservado, azul = pago. Contorno roxo = já incluído em uma impressão.</p>
+<div class="row">
+<div class="field"><label>Buscar número ou comprador</label><input id="filter" placeholder="Ex.: 02001 ou Maria"></div>
+<div class="field">
+<label>Status</label>
+<select id="statusFilter">
+<option value="">Todos</option>
+<option value="disponivel">Disponível</option>
+<option value="reservado">Reservado</option>
+<option value="pago">Pago</option>
+</select>
+</div>
+</div>
+<div id="numberGrid" class="numbers" style="margin-top:14px"></div>
+<h3 id="selectedTitle">Selecione um número</h3>
+<div class="row">
+<div class="field"><label>Nome do comprador</label><input id="buyer"></div>
+<div class="field"><label>WhatsApp</label><input id="phone"></div>
+<div class="field"><label>Endereço (opcional)</label><input id="address"></div>
+<div class="field">
+<label>Forma de pagamento</label>
+<select id="method">
+<option>Pix</option>
+<option>Dinheiro</option>
+<option>Débito</option>
+<option>Crédito</option>
+<option>Outro</option>
+</select>
+</div>
+</div>
+<div class="row" style="margin-top:12px">
+<button id="reserve">Reservar</button>
+<button id="paid">Dar baixa / pago</button>
+<button id="release" class="danger">Liberar número</button>
+<button id="printOne" class="secondary">Imprimir este número</button>
+</div>
+</section>
+<section id="imprimir" class="panel hidden">
+<h2>Impressão dos bilhetes</h2>
+<p>Modelo semelhante ao PDF: canhoto para dados do comprador, parte principal com prêmio, valor, data e número. São 8 bilhetes por folha A4.</p>
+<div class="row">
+<div class="field"><label>Do número</label><input id="printStart" type="number"></div>
+<div class="field"><label>Até o número</label><input id="printEnd" type="number"></div>
+<div class="field">
+<label>Tipo</label>
+<select id="printMode">
+<option value="all">Todos no intervalo</option>
+<option value="new">Somente ainda não impressos</option>
+<option value="paid">Somente pagos</option>
+</select>
+</div>
+<button id="printBtn">Gerar e imprimir</button>
+</div>
+<p class="muted">Ao gerar, os números são marcados como impressos no Firebase. A impressão é aberta após o registro. Se cancelar a impressão, a marcação permanece.</p>
+</section>
+<section id="sorteio" class="panel hidden">
+<h2>Sorteio final</h2>
+<p>Somente números com pagamento confirmado participam. O resultado é salvo no Firebase, e uma ação sorteada não pode ser sorteada novamente pelo painel.</p>
+<div id="drawSummary" class="panel"></div>
+<button id="drawBtn" class="danger">Realizar sorteio definitivo</button>
+<div id="drawResult"></div>
+</section>
+</section>
+</main>
+<div id="printArea" class="print-sheet"></div>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {getFirestore,collection,doc,getDocs,setDoc,updateDoc,runTransaction,serverTimestamp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+const $=id=>document.getElementById(id);
+const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(5,'0');
+const notify=e=>alert(e?.message||String(e));
+
+let auth,db,uid,actions=[],current=null,numbers=new Map(),selected=null;
+
+const firebaseConfig={
+apiKey:"AIzaSyDhrR_RXX9_EQdDTlr2M9tno9ErAQLgKd4",
+authDomain:"acaoentreamigos-e1579.firebaseapp.com",
+projectId:"acaoentreamigos-e1579",
+storageBucket:"acaoentreamigos-e1579.firebasestorage.app",
+messagingSenderId:"1061597862717",
+appId:"1:1061597862717:web:ae868e72a77ed5c7fe4354"
+};
+
+function tab(id){
+document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+['acoes','numeros','imprimir','sorteio'].forEach(t=>$(t).classList.toggle('hidden',t!==id));
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+
+function connect(){
+try{
+const app=initializeApp(firebaseConfig);
+auth=getAuth(app);
+db=getFirestore(app);
+$('auth').classList.remove('hidden');
+onAuthStateChanged(auth,async user=>{
+uid=user?.uid||null;
+$('userInfo').textContent=user?.email||'Não autenticado';
+$('auth').classList.toggle('hidden',!!user);
+$('app').classList.toggle('hidden',!user);
+if(user)await loadActions();
+});
+}catch(e){notify(e)}
+}
+connect();
+
+$('loginBtn').onclick=async()=>{
+try{await signInWithEmailAndPassword(auth,$('email').value,$('password').value)}
+catch(e){notify(e)}
+};
+$('logout').onclick=()=>signOut(auth);
+
+const aRef=id=>doc(db,'acoes',id);
+const nRef=(id,n)=>doc(db,'acoes',id,'numeros',String(n));
+
+async function loadActions(){
+try{
+const s=await getDocs(collection(db,'acoes'));
+actions=s.docs.map(d=>({id:d.id,...d.data()}));
+$('actionSelect').innerHTML='<option value="">Selecione uma ação</option>'+actions.map(a=>`<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
+if(current&&actions.some(a=>a.id===current.id))await choose(current.id);
+}catch(e){notify(e)}
+}
+
+async function choose(id){
+current=actions.find(a=>a.id===id)||null;
+numbers=new Map();
+selected=null;
+if(!current){render();return}
+for(const [k,v] of Object.entries({
+actionName:current.name,
+organization:current.organization,
+prize:current.prize,
+price:current.price,
+startNo:current.start,
+endNo:current.end,
+drawDate:current.drawDate
+}))$(k).value=v??'';
+$('actionSelect').value=id;
+$('printStart').value=current.start;
+$('printEnd').value=current.end;
+await loadNumbers();
+render();
+}
+
+$('actionSelect').onchange=e=>choose(e.target.value);
+$('newAction').onclick=()=>{
+current=null;
+numbers.clear();
+selected=null;
+$('actionSelect').value='';
+['actionName','organization','prize','drawDate'].forEach(id=>$(id).value='');
+$('price').value='2';
+$('startNo').value='1';
+$('endNo').value='500';
+render();
+};
+
+$('saveAction').onclick=async()=>{
+try{
+const name=$('actionName').value.trim();
+const prize=$('prize').value.trim();
+const price=Number($('price').value);
+const start=Number($('startNo').value);
+const end=Number($('endNo').value);
+if(!name||!prize||!Number.isFinite(price)||price<0||!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end-start>9999)
+throw Error('Preencha os campos. Limite: 10.000 números por ação.');
+const data={
+name,organization:$('organization').value.trim(),
+prize,price,start,end,drawDate:$('drawDate').value
+};
+if(current){
+if(start!==current.start||end!==current.end)
+throw Error('Não é possível alterar a faixa numérica de uma ação existente.');
+if(current.drawResult)throw Error('Ação sorteada está encerrada.');
+if(price!==current.price&&[...numbers.values()].some(n=>n.status!=='disponivel'))
+throw Error('Para mudar o valor, primeiro libere todos os números reservados/pagos.');
+await updateDoc(aRef(current.id),data);
+}else{
+const ref=doc(collection(db,'acoes'));
+await setDoc(ref,{...data,createdBy:uid,createdAt:serverTimestamp(),drawResult:null});
+current={id:ref.id,...data};
+}
+await loadActions();
+await choose(current.id);
+alert('Ação salva!');
+}catch(e){notify(e)}
+};
+
+async function loadNumbers(){
+numbers.clear();
+if(!current)return;
+const snap=await getDocs(collection(db,'acoes',current.id,'numeros'));
+snap.forEach(d=>numbers.set(Number(d.id),d.data()));
+}
+function info(n){
+return numbers.get(n)||{status:'disponivel',printed:false};
+}
+
+function render(){
+const ok=!!current;
+$('actionInfo').textContent=ok?`Ação: ${current.name} | Prêmio: ${current.prize} | ${money(current.price)} por número`:'Crie ou selecione uma ação.';
+if(!ok){
+$('stats').innerHTML='';
+$('numberGrid').innerHTML='';
+$('drawSummary').textContent='';
+$('drawResult').innerHTML='';
+$('drawBtn').disabled=true;
+return;
+}
+const all=Array.from({length:current.end-current.start+1},(_,i)=>current.start+i);
+const paid=all.filter(n=>info(n).status==='pago').length;
+const res=all.filter(n=>info(n).status==='reservado').length;
+const printed=all.filter(n=>info(n).printed).length;
+$('stats').innerHTML=[
+['Total',all.length],
+['Disponíveis',all.length-paid-res],
+['Reservados',res],
+['Pagos',paid],
+['Impressos',printed],
+['Arrecadado',money(paid*current.price)]
+].map(([a,b])=>`<div class="stat">${a}<strong>${b}</strong></div>`).join('');
+
+const f=$('filter').value.toLowerCase();
+const sf=$('statusFilter').value;
+const shown=all.filter(n=>{
+const x=info(n);
+return(!sf||x.status===sf)&&(!f||pad(n).includes(f)||String(n).includes(f)||(x.buyer||'').toLowerCase().includes(f));
+});
+$('numberGrid').innerHTML=shown.slice(0,3000).map(n=>{
+const x=info(n);
+return `<button class="num ${esc(x.status)} ${x.printed?'gerado':''} ${selected===n?'selected':''}" data-num="${n}" title="${esc(x.buyer||x.status)}">${pad(n)}</button>`;
+}).join('');
+if(shown.length>3000)$('numberGrid').insertAdjacentHTML('beforeend','<p>Mostrando os primeiros 3.000 resultados. Use a busca.</p>');
+$('numberGrid').querySelectorAll('[data-num]').forEach(b=>b.onclick=()=>selectNumber(Number(b.dataset.num)));
+$('selectedTitle').textContent=selected===null?'Selecione um número':`Número ${pad(selected)} — ${info(selected).status}`;
+$('drawSummary').textContent=`Números pagos elegíveis: ${paid}. ${current.drawResult?'Sorteio já realizado.':''}`;
+$('drawBtn').disabled=!!current.drawResult||paid===0;
+$('drawResult').innerHTML=current.drawResult?`<h2>Vencedor: ${pad(current.drawResult.number)}</h2><p>${esc(current.drawResult.buyer)} — ${esc(current.drawResult.phone||'')}</p><p>Data: ${esc(current.drawResult.at||'')}</p>`:'';
+}
+
+function selectNumber(n){
+selected=n;
+const x=info(n);
+$('buyer').value=x.buyer||'';
+$('phone').value=x.phone||'';
+$('address').value=x.address||'';
+$('method').value=x.method||'Pix';
+render();
+}
+$('filter').oninput=render;
+$('statusFilter').onchange=render;
+
+async function changeStatus(status){
+try{
+if(!current||selected===null)throw Error('Selecione uma ação e um número.');
+if(current.drawResult)throw Error('Ação encerrada.');
+const n=selected;
+const buyer=$('buyer').value.trim();
+if(status!=='disponivel'&&!buyer)throw Error('Informe o nome do comprador.');
+if(status==='disponivel'&&!confirm('Liberar este número e apagar os dados do comprador?'))return;
+await runTransaction(db,async tx=>{
+const ar=await tx.get(aRef(current.id));
+if(ar.data().drawResult)throw Error('Sorteio já realizado.');
+const ref=nRef(current.id,n);
+const snap=await tx.get(ref);
+const old=snap.exists()?snap.data():{};
+tx.set(ref,{
+status,
+buyer:status==='disponivel'?'':buyer,
+phone:status==='disponivel'?'':$('phone').value.trim(),
+address:status==='disponivel'?'':$('address').value.trim(),
+method:status==='disponivel'?'':$('method').value,
+printed:!!old.printed,
+updatedAt:serverTimestamp(),
+updatedBy:uid
+});
+});
+await loadNumbers();
+selectNumber(n);
+}catch(e){notify(e)}
+}
+$('reserve').onclick=()=>changeStatus('reservado');
+$('paid').onclick=()=>changeStatus('pago');
+$('release').onclick=()=>changeStatus('disponivel');
+
+function ticket(n){
+const x=info(n);
+const date=current.drawDate?new Date(current.drawDate+'T12:00:00').toLocaleDateString('pt-BR'):'A definir';
+return `<div class="ticket">
+<div class="stub">
+<b>${esc(current.name)}</b>
+<div class="lines">Nome: ${esc(x.buyer||'____________________')}<br>Endereço: ${esc(x.address||'________________')}<br>Telefone: ${esc(x.phone||'________________')}</div>
+<div><b>${money(current.price)} &nbsp; nº ${pad(n)}</b></div>
+</div>
+<div class="face">
+<div>
+<h3>${esc(current.name)}</h3>
+<b>${esc(current.prize)}</b>
+<p>Sorteio: ${esc(date)}<br>${esc(current.organization||'')}</p>
+</div>
+<div style="text-align:right;min-width:85px">
+<div class="no">${pad(n)}</div>
+<div class="price">${money(current.price)}</div>
+</div>
+</div>
+</div>`;
+}
+
+async function printRange(single){
+try{
+if(!current)throw Error('Selecione uma ação.');
+const from=single??Number($('printStart').value);
+const to=single??Number($('printEnd').value);
+if(from<current.start||to>current.end||from>to||to-from>2999)
+throw Error('Intervalo inválido. Imprima no máximo 3.000 bilhetes por vez.');
+const mode=single?'all':$('printMode').value;
+const nums=[];
+for(let n=from;n<=to;n++){
+const x=info(n);
+if(mode==='new'&&x.printed||mode==='paid'&&x.status!=='pago')continue;
+nums.push(n);
+}
+if(!nums.length)throw Error('Nenhum número encontrado.');
+if(!confirm(`Marcar ${nums.length} bilhetes como impressos e abrir a impressão?`))return;
+for(let i=0;i<nums.length;i+=400){
+const chunk=nums.slice(i,i+400);
+await Promise.all(chunk.map(async n=>{
+const ref=nRef(current.id,n),x=info(n);
+await setDoc(ref,{...x,printed:true,printedAt:new Date().toISOString()},{merge:true});
+}));
+}
+await loadNumbers();
+$('printArea').innerHTML=Array.from({length:Math.ceil(nums.length/8)},(_,i)=>`<div class="sheet">${nums.slice(i*8,i*8+8).map(ticket).join('')}</div>`).join('');
+render();
+window.print();
+}catch(e){notify(e)}
+}
+$('printBtn').onclick=()=>printRange();
+$('printOne').onclick=()=>{if(selected!==null)printRange(selected)};
+
+function randomIndex(n){
+const range=0x100000000;
+const limit=Math.floor(range/n)*n;
+const arr=new Uint32Array(1);
+let v;
+do{crypto.getRandomValues(arr);v=arr[0]}while(v>=limit);
+return v%n;
+}
+
+$('drawBtn').onclick=async()=>{
+try{
+if(!current)throw Error('Selecione uma ação.');
+if(current.drawResult)throw Error('Sorteio já realizado.');
+await loadNumbers();
+const eligible=Array.from({length:current.end-current.start+1},(_,i)=>current.start+i).filter(n=>info(n).status==='pago');
+if(!eligible.length)throw Error('Não há números pagos.');
+if(!confirm(`SORTEIO DEFINITIVO entre ${eligible.length} números pagos. Deseja continuar?`))return;
+const n=eligible[randomIndex(eligible.length)];
+const x=info(n);
+const result={
+number:n,
+buyer:x.buyer||'',
+phone:x.phone||'',
+at:new Date().toLocaleString('pt-BR'),
+eligibleCount:eligible.length
+};
+await runTransaction(db,async tx=>{
+const ref=aRef(current.id);
+const snap=await tx.get(ref);
+if(!snap.exists()||snap.data().drawResult)throw Error('Sorteio já realizado.');
+tx.update(ref,{drawResult:result,drawnAt:serverTimestamp(),drawnBy:uid});
+});
+current.drawResult=result;
+render();
+alert(`Número sorteado: ${pad(n)} — ${x.buyer}`);
+}catch(e){notify(e)}
+};
+</script>
+</body>
+</html>
